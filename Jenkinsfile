@@ -49,7 +49,7 @@ pipeline {
         
         stage('Deploy to AWS') {
             steps {
-                sshagent(['aws-ssh-key']) {
+                sshagent(['aws-ec2-key']) {
                     sh "ssh -o StrictHostKeyChecking=no ubuntu@52.72.144.115 'cd /home/ubuntu/distributed-log-monitoring-system && git pull && sudo ./scripts/deploy.sh'"
                 }
             }
