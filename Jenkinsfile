@@ -40,6 +40,7 @@ pipeline {
 
         stage('Deploy to Staging') {
             steps {
+                sh 'docker-compose down --remove-orphans || true'
                 sh 'docker-compose up -d'
             }
         }
