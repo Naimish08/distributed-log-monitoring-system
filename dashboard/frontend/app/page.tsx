@@ -250,9 +250,9 @@ export default function Dashboard() {
       "payment-service": "var(--success)",
     };
     return SERVICES.filter((s) => s !== "all").map((s) => ({
-      label: s.split("-")[0],
+      label: s.split("-")[0] || s,
       value: entries.filter((e) => e.service === s).length,
-      color: colors[s as keyof typeof colors] ?? "var(--text-dim)",
+      color: (colors as any)[s] ?? "var(--text-dim)",
     }));
   }, [entries]);
 
