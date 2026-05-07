@@ -64,7 +64,7 @@ services:
     build:
       context: ./dashboard/frontend
       args:
-        - NEXT_PUBLIC_API_URL=http://52.72.144.115:8000
+        - NEXT_PUBLIC_API_URL=http://100.30.202.183:8000
     restart: unless-stopped
     ports:
       - "3000:3000"
