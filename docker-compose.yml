@@ -1,7 +1,9 @@
 version: "3.8"
 
 services:
+  # ─────────────────────────────────────────
   # Monitoring Stack
+  # ─────────────────────────────────────────
   loki:
     image: grafana/loki:2.9.0
     restart: unless-stopped
@@ -12,6 +14,8 @@ services:
       - ./monitoring/loki-config.yaml:/etc/loki/loki-config.yaml
       - ./monitoring/loki-storage:/loki
       - ./monitoring/loki-storage/wal:/wal
+    networks:
+      - monitoring
 
   promtail:
     image: grafana/promtail:2.9.0
@@ -22,27 +26,57 @@ services:
     command: -config.file=/etc/promtail/promtail-config.yaml
     depends_on:
       - loki
+    networks:
+      - monitoring
 
+  grafana:
+    image: grafana/grafana:10.4.2
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - loki
+    networks:
+      - monitoring
+
+  # ─────────────────────────────────────────
   # Microservices
+  # ─────────────────────────────────────────
   auth-service:
     build: ./services/auth-service
     restart: unless-stopped
     ports:
       - "5001:5000"
+    networks:
+      - app
 
   order-service:
     build: ./services/order-service
     restart: unless-stopped
     ports:
       - "5002:5000"
+    networks:
+      - app
 
   payment-service:
     build: ./services/payment-service
     restart: unless-stopped
     ports:
       - "5003:5000"
+    networks:
+      - app
 
-  # Dashboard Backend
+  # ─────────────────────────────────────────
+  # Dashboard
+  # ─────────────────────────────────────────
   dashboard-backend:
     build: ./dashboard/backend
     restart: unless-stopped
@@ -58,8 +92,10 @@ services:
       - auth-service
       - order-service
       - payment-service
+    networks:
+      - app
+      - monitoring
 
-  # Dashboard Frontend
   dashboard-frontend:
     build:
       context: ./dashboard/frontend
@@ -70,3 +106,85 @@ services:
       - "3000:3000"
     depends_on:
       - dashboard-backend
+    networks:
+      - app
+
+  # ─────────────────────────────────────────
+  # CI/CD Stack
+  # ─────────────────────────────────────────
+  jenkins:
+    image: jenkins/jenkins:lts-jdk17
+    restart: unless-stopped
+    privileged: true
+    user: root
+    ports:
+      - "8080:8080"       # Jenkins Web UI
+      - "50000:50000"     # Jenkins agent port
+    volumes:
+      - jenkins-data:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock   # Allow Jenkins to run Docker commands
+    environment:
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
+    networks:
+      - cicd
+
+  # SonarQube Database
+  sonarqube-db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=sonar
+      - POSTGRES_PASSWORD=sonar
+      - POSTGRES_DB=sonarqube
+    volumes:
+      - sonarqube-db-data:/var/lib/postgresql/data
+    networks:
+      - cicd
+
+  sonarqube:
+    image: sonarqube:10.5-community
+    restart: unless-stopped
+    ports:
+      - "9000:9000"       # SonarQube Web UI
+    environment:
+      - SONAR_JDBC_URL=jdbc:postgresql://sonarqube-db:5432/sonarqube
+      - SONAR_JDBC_USERNAME=sonar
+      - SONAR_JDBC_PASSWORD=sonar
+      - SONAR_WEB_JAVAOPTS=-Xmx2g -Xms2g
+      - SONAR_CE_JAVAOPTS=-Xmx2g -Xms2g
+      - SONAR_SEARCH_JAVAOPTS=-Xmx2g -Xms2g
+    volumes:
+      - sonarqube-data:/opt/sonarqube/data
+      - sonarqube-logs:/opt/sonarqube/logs
+      - sonarqube-extensions:/opt/sonarqube/extensions
+    depends_on:
+      - sonarqube-db
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    networks:
+      - cicd
+
+# ─────────────────────────────────────────
+# Networks
+# ─────────────────────────────────────────
+networks:
+  monitoring:
+    driver: bridge
+  app:
+    driver: bridge
+  cicd:
+    driver: bridge
+
+# ─────────────────────────────────────────
+# Volumes
+# ─────────────────────────────────────────
+volumes:
+  grafana-data:
+  jenkins-data:
+  sonarqube-db-data:
+  sonarqube-data:
+  sonarqube-logs:
+  sonarqube-extensions:
+

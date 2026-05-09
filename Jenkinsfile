@@ -24,7 +24,7 @@ pipeline {
             }
         }
 
-/*
+
         stage('Quality Gate') {
             steps {
                 timeout(time: 5, unit: 'MINUTES') {
@@ -32,7 +32,7 @@ pipeline {
                 }
             }
         }
-*/
+
 
         stage('Build & Test') {
             steps {
@@ -50,7 +50,7 @@ pipeline {
         stage('Deploy to AWS') {
             steps {
                 sshagent(['aws-ec2-key']) {
-                    sh "ssh -o StrictHostKeyChecking=no ubuntu@100.30.202.183 'cd /home/ubuntu/distributed-log-monitoring-system && git pull && sudo ./scripts/deploy.sh'"
+                    sh "ssh -o StrictHostKeyChecking=no ubuntu@3.81.60.233 'cd /home/ubuntu/distributed-log-monitoring-system && git pull && sudo ./scripts/deploy.sh'"
                 }
             }
         }
